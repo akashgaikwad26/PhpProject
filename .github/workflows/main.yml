@@ -22,20 +22,33 @@ jobs:
   lint:
     name: Run PHP_CodeSniffer and Generate HTML Report
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Setup PHP
+    - name: Set Up PHP
       uses: shivammathur/setup-php@v2
       with:
         php-version: '8.1'
 
-    - name: Install PHP_CodeSniffer
+    - name: Install Composer
       run: |
-        composer global require "squizlabs/php_codesniffer=*"
+        curl -sS https://getcomposer.org/installer | php
+        mv composer.phar /usr/local/bin/composer
 
-    - name: Run PHP_CodeSniffer and Generate HTML Report
+    - name: Install PHP_CodeSniffer
+      run: composer global require "squizlabs/php_codesniffer=*"
+
+    - name: Verify Installation
+      run: ~/.composer/vendor/bin/phpcs --version
+
+    - name: List PHP Files
+      run: |
+        echo "Listing all PHP files in the repository..."
+        find . -name "*.php" || echo "No PHP files found"
+
+    - name: Run PHP_CodeSniffer and Generate Reports
       run: |
         mkdir -p phpcs-reports
         ~/.composer/vendor/bin/phpcs --standard=PSR12 \
@@ -43,23 +56,25 @@ jobs:
           --report-file=phpcs-reports/phpcs-report.json \
           --report=full,summary,html:phpcs-reports/phpcs-report.html \
           .
+      continue-on-error: true
 
     - name: Calculate Quality Score
       id: calculate_score
       run: |
-        # Extract error and warning counts from the JSON report
+        if [ ! -f phpcs-reports/phpcs-report.json ]; then
+          echo "No JSON report generated. Setting Quality Score to 0."
+          echo "quality_score=0" >> $GITHUB_ENV
+          exit 0
+        fi
+
         ERROR_COUNT=$(jq '.totals.errors' phpcs-reports/phpcs-report.json)
         WARNING_COUNT=$(jq '.totals.warnings' phpcs-reports/phpcs-report.json)
-
-        # Total PHP files scanned
         FILE_COUNT=$(jq '.files | keys | length' phpcs-reports/phpcs-report.json)
 
-        # Avoid division by zero
         if [ "$FILE_COUNT" -eq 0 ]; then
           echo "No PHP files found. Setting Quality Score to 0."
           QUALITY_SCORE=0
         else
-          # Calculate Quality Score (lower score is worse)
           QUALITY_SCORE=$(awk "BEGIN {printf \"%.2f\", 100 - (($ERROR_COUNT + $WARNING_COUNT) * 10 / $FILE_COUNT)}")
         fi
 
@@ -68,8 +83,12 @@ jobs:
 
     - name: Add Quality Score to HTML Report
       run: |
-        QUALITY_SCORE=${{ env.quality_score }}
-        echo "<h2>Quality Score: $QUALITY_SCORE%</h2>" >> phpcs-reports/phpcs-report.html
+        if [ -f phpcs-reports/phpcs-report.html ]; then
+          QUALITY_SCORE=${{ env.quality_score }}
+          echo "<h2>Quality Score: $QUALITY_SCORE%</h2>" >> phpcs-reports/phpcs-report.html
+        else
+          echo "HTML report not found. Skipping this step."
+        fi
 
     - name: Upload HTML Report as Artifact
       uses: actions/upload-artifact@v3
@@ -77,26 +96,25 @@ jobs:
         name: php-code-quality-report
         path: phpcs-reports/phpcs-report.html
 
-    - name: Save Report in `docs/` Folder
+    - name: Save Report to Docs Folder
       run: |
         USERNAME="${{ github.event.inputs.custom_username || 'default-user' }}"
         PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
-        DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
+        DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code-quality"
         mkdir -p "$DOCS_FOLDER"
-        cp phpcs-reports/phpcs-report.html "$DOCS_FOLDER/"
+        if [ -f phpcs-reports/phpcs-report.html ]; then
+          cp phpcs-reports/phpcs-report.html "$DOCS_FOLDER/"
+        else
+          echo "No HTML report to save. Skipping this step."
+        fi
 
-    - name: Commit and Push Report to GitHub Pages
+    - name: Commit and Push Report
       run: |
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
-        
-        if [ -f "docs/${{ github.event.inputs.custom_username || 'default-user' }}/code_quality/phpcs-report.html" ]; then
-          git add docs/
-          git commit -m "Update PHP_CodeSniffer HTML report for ${{ github.event.inputs.custom_username || 'default-user' }}"
-          git push origin main
-        else
-          echo "No report to commit. Skipping."
-        fi
+        git add docs/
+        git commit -m "Update PHP_CodeSniffer report for ${{ github.event.inputs.custom_username || 'default-user' }}"
+        git push origin main || echo "No changes to commit."
 
     - name: Notify External API
       run: |
@@ -113,4 +131,4 @@ jobs:
             \"recordtime\": \"$LAST_REQUEST_TIME\",
             \"quality\": \"${{ env.quality_score }}\",
             \"coverage\": \"${{ env.quality_score }}\"
-          }"
+          }" || echo "API notification failed"
