@@ -81,15 +81,7 @@ jobs:
         echo "Quality Score: $QUALITY_SCORE%"
         echo "quality_score=$QUALITY_SCORE" >> $GITHUB_ENV
 
-    - name: Add Quality Score to HTML Report
-      run: |
-        if [ -f phpcs-reports/phpcs-report.html ]; then
-          QUALITY_SCORE=${{ env.quality_score }}
-          echo "<h2>Quality Score: $QUALITY_SCORE%</h2>" >> phpcs-reports/phpcs-report.html
-        else
-          echo "HTML report not found. Skipping this step."
-        fi
-
+  
     - name: Upload HTML Report as Artifact
       uses: actions/upload-artifact@v3
       with:
@@ -108,14 +100,19 @@ jobs:
           echo "No HTML report to save. Skipping this step."
         fi
 
-    - name: Commit and Push Report
+    - name: Commit and Push Updated Report to GitHub Pages
       run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-        git add docs/
-        git commit -m "Update PHP_CodeSniffer report for ${{ github.event.inputs.custom_username || 'default-user' }}"
-        git push origin main || echo "No changes to commit."
-
+            git config user.name "GitHub Actions"
+            git config user.email "actions@github.com"
+    
+            # Corrected file path and name to match PHP report
+             if [ -f "docs/${{ github.event.inputs.custom_username || 'default-user' }}/code-quality/phpcs-report.html" ]; then
+              git add docs/${{ github.event.inputs.custom_username || 'default-user' }}/code-quality/phpcs-report.html
+              git commit -m "Update PHP_CodeSniffer report with Quality Score for ${{ github.event.inputs.custom_username || 'default-user' }}"
+              git push origin main --force
+             else
+              echo "No report to commit. Skipping."
+             fi
     - name: Notify External API
       run: |
         API_URL="https://dolphin-app-uzion.ondigitalocean.app/api/setQuality?clientpublic=baef7468287a44d8ac3634026d9fb8d1&clientsecret=181a2f3171117c1bd164c88b1171c1b83114fc1712121b12"
