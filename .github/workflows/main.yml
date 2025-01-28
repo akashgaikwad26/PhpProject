@@ -22,6 +22,7 @@ jobs:
   lint:
     name: Run PHP_CodeSniffer and Generate HTML Report
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
@@ -34,46 +35,43 @@ jobs:
     - name: Install PHP_CodeSniffer
       run: |
         composer global require "squizlabs/php_codesniffer=*"
-        
-        # Check if phpcs is installed and accessible
-        echo "Checking PHP_CodeSniffer installation"
-        which phpcs || { echo "PHP_CodeSniffer is not installed or not in PATH"; exit 1; }
-        phpcs --version || { echo "PHP_CodeSniffer version check failed"; exit 1; }
-        
-        # Debug: Check composer global bin directory
-        echo "Composer global bin directory: $(composer global config bin-dir)"
-        ls -l $(composer global config bin-dir)  # List files in Composer global bin directory
+
+        # Check the installation location of PHP_CodeSniffer
+        echo "PHP_CodeSniffer installed in: $(composer global config bin-dir)"
+
+        # Debug: Show contents of the Composer bin directory
+        ls -l $(composer global config bin-dir)
+
+        # Ensure phpcs binary is available
+        PHPCS_PATH=$(composer global config bin-dir)/phpcs
+        echo "PHP_CodeSniffer Path: $PHPCS_PATH"
+
+        # Check if phpcs is available and show version
+        if [ -f "$PHPCS_PATH" ]; then
+          echo "PHP_CodeSniffer is available at $PHPCS_PATH"
+          $PHPCS_PATH --version
+        else
+          echo "PHP_CodeSniffer not found at $PHPCS_PATH"
+          exit 1
+        fi
 
     - name: Run PHP_CodeSniffer and Generate HTML Report
       run: |
         # Ensure the phpcs-reports directory exists
         mkdir -p phpcs-reports
         echo "Created phpcs-reports directory"
-        
-        # Debug: Check PHP version
+
+        # Check PHP version
         php --version
-        
-        # Debug: Check composer global bin directory
-        composer global config bin-dir
-        
-        # Check if PHP_CodeSniffer exists and run the command
-        echo "Running PHP_CodeSniffer"
-        ~/.composer/vendor/bin/phpcs --standard=PSR12 \
+
+        # Run PHP_CodeSniffer with the correct path
+        PHPCS_PATH=$(composer global config bin-dir)/phpcs
+        $PHPCS_PATH --standard=PSR12 \
           --report=json \
           --report-file=phpcs-reports/phpcs-report.json \
           --report=full,summary,html:phpcs-reports/phpcs-report.html \
           . || { echo "PHP_CodeSniffer failed to run"; exit 1; }
         echo "PHP_CodeSniffer report generated successfully"
-
-
-
-   
-        
-
-
-
- 
-          .
 
     - name: Calculate Quality Score
       id: calculate_score
