@@ -22,7 +22,6 @@ jobs:
   lint:
     name: Run PHP_CodeSniffer and Generate HTML Report
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
@@ -36,58 +35,31 @@ jobs:
       run: |
         composer global require "squizlabs/php_codesniffer=*"
 
-        # Check the installation location of PHP_CodeSniffer
-        echo "PHP_CodeSniffer installed in: $(composer global config bin-dir)"
-
-        # Debug: Show contents of the Composer bin directory
-        ls -l $(composer global config bin-dir)
-
-        # Ensure phpcs binary is available
-        PHPCS_PATH=$(composer global config bin-dir)/phpcs
-        echo "PHP_CodeSniffer Path: $PHPCS_PATH"
-
-        # Check if phpcs is available and show version
-        if [ -f "$PHPCS_PATH" ]; then
-          echo "PHP_CodeSniffer is available at $PHPCS_PATH"
-          $PHPCS_PATH --version
-        else
-          echo "PHP_CodeSniffer not found at $PHPCS_PATH"
-          exit 1
-        fi
-
     - name: Run PHP_CodeSniffer and Generate HTML Report
       run: |
-        # Ensure the phpcs-reports directory exists
         mkdir -p phpcs-reports
-        echo "Created phpcs-reports directory"
-
-        # Check PHP version
-        php --version
-
-        # Run PHP_CodeSniffer with the correct path
-        PHPCS_PATH=$(composer global config bin-dir)/phpcs
-        $PHPCS_PATH --standard=PSR12 \
+        ~/.composer/vendor/bin/phpcs --standard=PSR12 \
           --report=json \
           --report-file=phpcs-reports/phpcs-report.json \
           --report=full,summary,html:phpcs-reports/phpcs-report.html \
-          . || { echo "PHP_CodeSniffer failed to run"; exit 1; }
-        echo "PHP_CodeSniffer report generated successfully"
+          .
 
     - name: Calculate Quality Score
       id: calculate_score
       run: |
-        # Extract error counts from the JSON report
+        # Extract error and warning counts from the JSON report
         ERROR_COUNT=$(jq '.totals.errors' phpcs-reports/phpcs-report.json)
         WARNING_COUNT=$(jq '.totals.warnings' phpcs-reports/phpcs-report.json)
 
         # Total PHP files scanned
         FILE_COUNT=$(jq '.files | keys | length' phpcs-reports/phpcs-report.json)
 
-        # Calculate Quality Score
+        # Avoid division by zero
         if [ "$FILE_COUNT" -eq 0 ]; then
           echo "No PHP files found. Setting Quality Score to 0."
           QUALITY_SCORE=0
         else
+          # Calculate Quality Score (lower score is worse)
           QUALITY_SCORE=$(awk "BEGIN {printf \"%.2f\", 100 - (($ERROR_COUNT + $WARNING_COUNT) * 10 / $FILE_COUNT)}")
         fi
 
