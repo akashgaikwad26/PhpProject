@@ -34,8 +34,11 @@ jobs:
     - name: Install PHP_CodeSniffer
       run: |
         composer global require "squizlabs/php_codesniffer=*"
-        # Check if phpcs is installed correctly
-        phpcs --version || { echo "PHP_CodeSniffer installation failed"; exit 1; }
+        
+        # Check if phpcs is installed and accessible
+        echo "Checking PHP_CodeSniffer installation"
+        which phpcs || { echo "PHP_CodeSniffer is not installed or not in PATH"; exit 1; }
+        phpcs --version || { echo "PHP_CodeSniffer version check failed"; exit 1; }
 
     - name: Run PHP_CodeSniffer and Generate HTML Report
       run: |
@@ -43,13 +46,25 @@ jobs:
         mkdir -p phpcs-reports
         echo "Created phpcs-reports directory"
         
-        # Run PHP_CodeSniffer with debugging output
+        # Debug: Check PHP version
+        php --version
+        
+        # Debug: Check composer global bin directory
+        composer global bin
+        
+        # Check if PHP_CodeSniffer exists and run the command
+        echo "Running PHP_CodeSniffer"
         ~/.composer/vendor/bin/phpcs --standard=PSR12 \
           --report=json \
           --report-file=phpcs-reports/phpcs-report.json \
           --report=full,summary,html:phpcs-reports/phpcs-report.html \
           . || { echo "PHP_CodeSniffer failed to run"; exit 1; }
         echo "PHP_CodeSniffer report generated successfully"
+
+
+   
+        
+
 
 
  
