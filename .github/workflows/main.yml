@@ -55,10 +55,10 @@ jobs:
           --report=json \
           --report-file=phpcs-reports/phpcs-report.json \
           --report=full,summary,html:phpcs-reports/phpcs-report.html \
-          .
+          . || true
       continue-on-error: true
 
-    - name: Calculate Quality Score
+    - name: Parse and Calculate Quality Score
       id: calculate_score
       run: |
         if [ ! -f phpcs-reports/phpcs-report.json ]; then
