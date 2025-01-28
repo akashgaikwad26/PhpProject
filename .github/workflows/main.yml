@@ -39,6 +39,10 @@ jobs:
         echo "Checking PHP_CodeSniffer installation"
         which phpcs || { echo "PHP_CodeSniffer is not installed or not in PATH"; exit 1; }
         phpcs --version || { echo "PHP_CodeSniffer version check failed"; exit 1; }
+        
+        # Debug: Check composer global bin directory
+        echo "Composer global bin directory: $(composer global config bin-dir)"
+        ls -l $(composer global config bin-dir)  # List files in Composer global bin directory
 
     - name: Run PHP_CodeSniffer and Generate HTML Report
       run: |
@@ -50,7 +54,7 @@ jobs:
         php --version
         
         # Debug: Check composer global bin directory
-        composer global bin
+        composer global config bin-dir
         
         # Check if PHP_CodeSniffer exists and run the command
         echo "Running PHP_CodeSniffer"
@@ -60,6 +64,7 @@ jobs:
           --report=full,summary,html:phpcs-reports/phpcs-report.html \
           . || { echo "PHP_CodeSniffer failed to run"; exit 1; }
         echo "PHP_CodeSniffer report generated successfully"
+
 
 
    
