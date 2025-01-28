@@ -1,0 +1,115 @@
+name: Code Quality (PHP)
+
+on:
+  push:
+    paths:
+      - '**/*.php'
+  pull_request:
+    paths:
+      - '**/*.php'
+  workflow_dispatch:
+    inputs:
+      custom_username:
+        description: 'Enter custom username (default is "default-user")'
+        required: false
+        default: 'default-user'
+      project_id:
+        description: 'Enter project ID (default is "default-project")'
+        required: false
+        default: 'default-project'
+
+jobs:
+  lint:
+    name: Run PHP_CodeSniffer and Generate HTML Report
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+
+    - name: Install PHP_CodeSniffer
+      run: |
+        composer global require "squizlabs/php_codesniffer=*"
+
+    - name: Run PHP_CodeSniffer and Generate HTML Report
+      run: |
+        mkdir -p phpcs-reports
+        ~/.composer/vendor/bin/phpcs --standard=PSR12 \
+          --report=json \
+          --report-file=phpcs-reports/phpcs-report.json \
+          --report=full,summary,html:phpcs-reports/phpcs-report.html \
+          .
+
+    - name: Calculate Quality Score
+      id: calculate_score
+      run: |
+        # Extract error counts from the JSON report
+        ERROR_COUNT=$(jq '.totals.errors' phpcs-reports/phpcs-report.json)
+        WARNING_COUNT=$(jq '.totals.warnings' phpcs-reports/phpcs-report.json)
+
+        # Total PHP files scanned
+        FILE_COUNT=$(jq '.files | keys | length' phpcs-reports/phpcs-report.json)
+
+        # Calculate Quality Score
+        if [ "$FILE_COUNT" -eq 0 ]; then
+          echo "No PHP files found. Setting Quality Score to 0."
+          QUALITY_SCORE=0
+        else
+          QUALITY_SCORE=$(awk "BEGIN {printf \"%.2f\", 100 - (($ERROR_COUNT + $WARNING_COUNT) * 10 / $FILE_COUNT)}")
+        fi
+
+        echo "Quality Score: $QUALITY_SCORE%"
+        echo "quality_score=$QUALITY_SCORE" >> $GITHUB_ENV
+
+    - name: Add Quality Score to HTML Report
+      run: |
+        QUALITY_SCORE=${{ env.quality_score }}
+        echo "<h2>Quality Score: $QUALITY_SCORE%</h2>" >> phpcs-reports/phpcs-report.html
+
+    - name: Upload HTML Report as Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: php-code-quality-report
+        path: phpcs-reports/phpcs-report.html
+
+    - name: Save Report in `docs/` Folder
+      run: |
+        USERNAME="${{ github.event.inputs.custom_username || 'default-user' }}"
+        PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
+        DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
+        mkdir -p "$DOCS_FOLDER"
+        cp phpcs-reports/phpcs-report.html "$DOCS_FOLDER/"
+
+    - name: Commit and Push Report to GitHub Pages
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        
+        if [ -f "docs/${{ github.event.inputs.custom_username || 'default-user' }}/code_quality/phpcs-report.html" ]; then
+          git add docs/
+          git commit -m "Update PHP_CodeSniffer HTML report for ${{ github.event.inputs.custom_username || 'default-user' }}"
+          git push origin main
+        else
+          echo "No report to commit. Skipping."
+        fi
+
+    - name: Notify External API
+      run: |
+        API_URL="https://dolphin-app-uzion.ondigitalocean.app/api/setQuality?clientpublic=baef7468287a44d8ac3634026d9fb8d1&clientsecret=181a2f3171117c1bd164c88b1171c1b83114fc1712121b12"
+        USER_ID="${{ github.event.inputs.custom_username || 'default-user' }}"
+        PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
+        LAST_REQUEST_TIME="$(date +%s)000"
+
+        curl -X POST "$API_URL" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"userid\": \"$USER_ID\",
+            \"projectid\": \"$PROJECT_ID\",
+            \"recordtime\": \"$LAST_REQUEST_TIME\",
+            \"quality\": \"${{ env.quality_score }}\",
+            \"coverage\": \"${{ env.quality_score }}\"
+          }"
