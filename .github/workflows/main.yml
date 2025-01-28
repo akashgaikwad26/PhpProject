@@ -86,7 +86,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: php-code-quality-report
-        path: phpcs-reports/phpcs-report.html
+        path: phpcs-reports/phpcs-report.json
 
     - name: Save Report to Docs Folder
       run: |
@@ -94,8 +94,8 @@ jobs:
         PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
         DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code-quality"
         mkdir -p "$DOCS_FOLDER"
-        if [ -f phpcs-reports/phpcs-report.html ]; then
-          cp phpcs-reports/phpcs-report.html "$DOCS_FOLDER/"
+        if [ -f phpcs-reports/phpcs-report.json ]; then
+          cp phpcs-reports/phpcs-report.json "$DOCS_FOLDER/"
         else
           echo "No HTML report to save. Skipping this step."
         fi
@@ -106,8 +106,8 @@ jobs:
             git config user.email "actions@github.com"
     
             # Corrected file path and name to match PHP report
-             if [ -f "docs/${{ github.event.inputs.custom_username || 'default-user' }}/code-quality/phpcs-report.html" ]; then
-              git add docs/${{ github.event.inputs.custom_username || 'default-user' }}/code-quality/phpcs-report.html
+             if [ -f "docs/${{ github.event.inputs.custom_username || 'default-user' }}/code-quality/phpcs-report.json" ]; then
+              git add docs/${{ github.event.inputs.custom_username || 'default-user' }}/code-quality/phpcs-report.json
               git commit -m "Update PHP_CodeSniffer report with Quality Score for ${{ github.event.inputs.custom_username || 'default-user' }}"
               git push origin main --force
              else
