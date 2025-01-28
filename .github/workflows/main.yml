@@ -34,14 +34,25 @@ jobs:
     - name: Install PHP_CodeSniffer
       run: |
         composer global require "squizlabs/php_codesniffer=*"
+        # Check if phpcs is installed correctly
+        phpcs --version || { echo "PHP_CodeSniffer installation failed"; exit 1; }
 
     - name: Run PHP_CodeSniffer and Generate HTML Report
       run: |
+        # Ensure the phpcs-reports directory exists
         mkdir -p phpcs-reports
+        echo "Created phpcs-reports directory"
+        
+        # Run PHP_CodeSniffer with debugging output
         ~/.composer/vendor/bin/phpcs --standard=PSR12 \
           --report=json \
           --report-file=phpcs-reports/phpcs-report.json \
           --report=full,summary,html:phpcs-reports/phpcs-report.html \
+          . || { echo "PHP_CodeSniffer failed to run"; exit 1; }
+        echo "PHP_CodeSniffer report generated successfully"
+
+
+ 
           .
 
     - name: Calculate Quality Score
