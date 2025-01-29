@@ -72,16 +72,7 @@ jobs:
           echo "Text Coverage Report:"
           cat coverage-report/index.html || echo "No coverage report found."
 
-      - name: Extract Coverage Percentage
-        id: extract-coverage
-        run: |
-          COVERAGE=$(grep -oP 'line-rate="([0-9]+\.[0-9]+)"' coverage-report/coverage.xml | head -1 | grep -oP '[0-9]+\.[0-9]+')
-          if [[ -z "$COVERAGE" ]]; then
-            echo "Coverage percentage not found, defaulting to 0%"
-            COVERAGE=0
-          fi
-          echo "Coverage Percentage: $COVERAGE%"
-          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+  
 
       - name: Move coverage reports to docs/
         run: |
