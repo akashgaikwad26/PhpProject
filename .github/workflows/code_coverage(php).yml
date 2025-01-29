@@ -43,8 +43,8 @@ jobs:
           if [ ! -f "composer.json" ]; then
             echo "composer.json not found. Creating a default one..."
             cat << 'EOL' > composer.json
-              {
-               "name": "default/project",
+{
+    "name": "default/project",
     "description": "Auto-generated composer.json",
     "require": {
         "php": ">=8.0"
@@ -57,8 +57,9 @@ jobs:
             "App\\": "src/"
         }
     }
- }EOL
-fi
+}
+EOL
+          fi
 
       - name: Install dependencies
         run: composer install --no-progress --prefer-dist
